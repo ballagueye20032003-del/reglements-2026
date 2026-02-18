@@ -703,26 +703,68 @@ let deleteId = null;
 let charts = {};
 
 // ══════════════════════════════════════════════════
-// STORAGE (localStorage — persistant sur cet appareil)
+// FIREBASE CONFIG — Base de données partagée temps réel
 // ══════════════════════════════════════════════════
-const STORAGE_KEY = 'reglements-2026-data';
+const FIREBASE_URL = 'https://ipm-ridwan-default-rtdb.europe-west1.firebasedatabase.app';
+const DB_PATH = '/reglements2026';
 
-function loadData() {
+async function loadData() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    allData = raw ? JSON.parse(raw) : [];
+    showLoadingIndicator(true);
+    const res = await fetch(FIREBASE_URL + DB_PATH + '.json');
+    const data = await res.json();
+    allData = data ? Object.values(data) : [];
+    // Stocker les Firebase keys pour les updates/deletes
+    if (data) {
+      window._fbKeys = {};
+      Object.entries(data).forEach(([k,v]) => { window._fbKeys[v.id] = k; });
+    } else {
+      window._fbKeys = {};
+    }
   } catch(e) {
-    allData = [];
+    console.error('Firebase load error:', e);
+    // Fallback localStorage
+    try { allData = JSON.parse(localStorage.getItem('reglements-2026-data') || '[]'); } catch(_) { allData = []; }
+    showToast('⚠️ Connexion Firebase impossible — mode local activé');
   }
+  showLoadingIndicator(false);
   renderAll();
 }
 
-function saveData() {
+async function saveData() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    // Sauvegarder chaque item avec son ID Firebase
+    const payload = {};
+    allData.forEach(d => {
+      const fbKey = (window._fbKeys && window._fbKeys[d.id]) || d.id;
+      payload[fbKey] = d;
+      if (!window._fbKeys) window._fbKeys = {};
+      window._fbKeys[d.id] = fbKey;
+    });
+    await fetch(FIREBASE_URL + DB_PATH + '.json', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    // Backup localStorage aussi
+    localStorage.setItem('reglements-2026-data', JSON.stringify(allData));
   } catch(e) {
-    showToast('⚠️ Erreur de sauvegarde');
+    // Fallback localStorage
+    localStorage.setItem('reglements-2026-data', JSON.stringify(allData));
+    showToast('⚠️ Sauvegarde locale uniquement');
   }
+}
+
+function showLoadingIndicator(show) {
+  let el = document.getElementById('fb-loading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fb-loading';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#c8922a,#f5e6c8,#c8922a);background-size:200%;animation:fbload 1s infinite;z-index:9999;display:none;';
+    document.head.insertAdjacentHTML('beforeend','<style>@keyframes fbload{0%{background-position:0%}100%{background-position:200%}}</style>');
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'block' : 'none';
 }
 
 // ══════════════════════════════════════════════════
