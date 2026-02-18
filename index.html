@@ -912,7 +912,14 @@ async function loadData() {
 
 async function saveData() {
   try {
-    // Sauvegarder chaque item avec son ID Firebase
+    // Si allData est vide, supprimer tout de Firebase
+    if (allData.length === 0) {
+      await fetch(FIREBASE_URL + DB_PATH + '.json', {
+        method: 'DELETE'
+      });
+      localStorage.removeItem('reglements-2026-data');
+      return;
+    }
     const payload = {};
     allData.forEach(d => {
       const fbKey = (window._fbKeys && window._fbKeys[d.id]) || d.id;
@@ -925,10 +932,8 @@ async function saveData() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
-    // Backup localStorage aussi
     localStorage.setItem('reglements-2026-data', JSON.stringify(allData));
   } catch(e) {
-    // Fallback localStorage
     localStorage.setItem('reglements-2026-data', JSON.stringify(allData));
     showToast('⚠️ Sauvegarde locale uniquement');
   }
