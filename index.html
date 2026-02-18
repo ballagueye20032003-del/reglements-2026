@@ -665,9 +665,73 @@ if (sessionStorage.getItem('ipm-auth') === '1') {
   <!-- SAISIE PAGE -->
   <div class="page" id="page-saisie">
     <div style="max-width:640px;">
+
+      <!-- IMPORT EXCEL CARD -->
+      <div class="card" style="margin-bottom:20px;border:2px dashed var(--gold);background:var(--gold-light);">
+        <div class="card-header" style="background:transparent;border-bottom:1px solid rgba(200,146,42,0.2);">
+          <span class="card-title">📥 Import Excel / CSV — Plusieurs règlements en 1 clic</span>
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">⬇️ Télécharger le modèle</button>
+        </div>
+        <div class="card-body">
+          <!-- Zone de drop -->
+          <div id="drop-zone" onclick="document.getElementById('csv-file-input').click()"
+            style="
+              border:2px dashed rgba(200,146,42,0.4);border-radius:10px;
+              padding:28px;text-align:center;cursor:pointer;
+              transition:all 0.2s;background:rgba(255,255,255,0.5);
+            "
+            ondragover="event.preventDefault();this.style.background='rgba(200,146,42,0.15)'"
+            ondragleave="this.style.background='rgba(255,255,255,0.5)'"
+            ondrop="handleFileDrop(event)"
+          >
+            <div style="font-size:36px;margin-bottom:8px">📊</div>
+            <div style="font-weight:700;color:var(--gold);font-size:14px;margin-bottom:4px">Glisse ton fichier ici ou clique pour sélectionner</div>
+            <div style="font-size:12px;color:var(--ink3)">Formats acceptés : .csv ou .xlsx (Excel)</div>
+            <input type="file" id="csv-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(this)">
+          </div>
+
+          <!-- Aperçu avant import -->
+          <div id="import-preview" style="display:none;margin-top:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-weight:700;color:var(--ink);font-size:13px;" id="import-preview-title">Aperçu</span>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="cancelImport()">✕ Annuler</button>
+                <button class="btn btn-green btn-sm" onclick="confirmImport()" id="import-confirm-btn">✅ Importer</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border);">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                  <tr style="background:var(--surface2);">
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">#</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">PRATICIEN</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">CATÉGORIE</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">MONTANT</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">DATE</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">MODE</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">BANQUE</th>
+                    <th style="padding:8px 10px;text-align:left;color:var(--ink3);font-size:11px;">STATUT</th>
+                  </tr>
+                </thead>
+                <tbody id="import-preview-body"></tbody>
+              </table>
+            </div>
+            <div id="import-summary" style="margin-top:10px;font-size:12px;color:var(--ink3);"></div>
+          </div>
+
+          <!-- Instructions -->
+          <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.6);border-radius:8px;font-size:12px;color:var(--ink2);">
+            <strong>📋 Format requis (colonnes dans l'ordre) :</strong><br>
+            <span style="font-family:monospace;color:var(--gold)">Mois | Praticien | Catégorie | Montant | Date | Mode | Banque | Commentaire</span><br><br>
+            <strong>💡 Astuce :</strong> Télécharge le modèle → remplis-le dans Excel → importe-le ici !
+          </div>
+        </div>
+      </div>
+
+      <!-- FORMULAIRE SAISIE MANUELLE -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">✍️ Nouveau règlement</span>
+          <span class="card-title">✍️ Saisie manuelle</span>
           <span style="font-size:12px;color:var(--ink3)">Numéro auto-incrémenté</span>
         </div>
         <div class="card-body">
@@ -1426,8 +1490,159 @@ function exportCSV() {
 }
 
 // ══════════════════════════════════════════════════
-// EXPORT MENU TOGGLE
+// IMPORT EXCEL / CSV
 // ══════════════════════════════════════════════════
+let importData = [];
+
+function downloadTemplate() {
+  const header = 'Mois;Praticien;Catégorie;Montant;Date;Mode;Banque;Commentaire';
+  const example1 = 'FEVRIER 2026;PHARMACIE CENTRALE;PHARMACIE;1500000;18/02/2026;VIREMENT;FBN BANK;';
+  const example2 = 'FEVRIER 2026;CLINIQUE DU PLATEAU;CLINIQUE;2000000;18/02/2026;ESPECES;CBAO;Règlement janvier';
+  const csv = header + '\r\n' + example1 + '\r\n' + example2;
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'modele_import_reglements.csv';
+  a.click();
+  showToast('✅ Modèle téléchargé — ouvrez avec Excel !');
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').style.background = 'rgba(255,255,255,0.5)';
+  const file = e.dataTransfer.files[0];
+  if (file) parseImportFile(file);
+}
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (file) parseImportFile(file);
+  input.value = '';
+}
+
+function parseImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const text = e.target.result;
+      // Détecter séparateur (virgule ou point-virgule)
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { showToast('❌ Fichier vide ou invalide'); return; }
+
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(h => h.replace(/"/g,'').trim().toLowerCase());
+
+      // Mapping flexible des colonnes
+      const colMap = {};
+      headers.forEach((h,i) => {
+        if (h.includes('mois')) colMap.month = i;
+        if (h.includes('pratic')) colMap.praticien = i;
+        if (h.includes('cat')) colMap.categorie = i;
+        if (h.includes('mont')) colMap.montant = i;
+        if (h.includes('date')) colMap.date = i;
+        if (h.includes('mode') || h.includes('règl') || h.includes('regl')) colMap.reglement = i;
+        if (h.includes('banq')) colMap.banque = i;
+        if (h.includes('comm')) colMap.commentaire = i;
+      });
+
+      importData = [];
+      const errors = [];
+
+      lines.slice(1).forEach((line, idx) => {
+        if (!line.trim()) return;
+        const cols = line.split(sep).map(c => c.replace(/^"|"$/g,'').trim());
+
+        const row = {
+          id: uid(),
+          createdAt: Date.now() + idx,
+          month: cols[colMap.month] || currentMonthName(),
+          praticien: (cols[colMap.praticien] || '').toUpperCase().trim(),
+          categorie: cols[colMap.categorie] || '',
+          montant: parseFloat((cols[colMap.montant] || '0').replace(/\s/g,'').replace(',','.')),
+          date: formatDateImport(cols[colMap.date] || ''),
+          reglement: (cols[colMap.reglement] || 'VIREMENT').toUpperCase(),
+          banque: cols[colMap.banque] || 'FBN BANK',
+          commentaire: cols[colMap.commentaire] || '',
+        };
+
+        // Validation
+        let valid = true;
+        if (!row.praticien) { errors.push(`Ligne ${idx+2}: Praticien manquant`); valid = false; }
+        if (!row.montant || isNaN(row.montant) || row.montant <= 0) { errors.push(`Ligne ${idx+2}: Montant invalide`); valid = false; }
+
+        // Auto-numéro sera calculé à l'import
+        row._valid = valid;
+        importData.push(row);
+      });
+
+      showImportPreview(importData, errors);
+    } catch(err) {
+      showToast('❌ Erreur lecture fichier: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function formatDateImport(dateStr) {
+  if (!dateStr) return new Date().toISOString().slice(0,10);
+  // Format DD/MM/YYYY → YYYY-MM-DD
+  const parts = dateStr.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+    if (parts[0].length === 4) return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+  }
+  return dateStr;
+}
+
+function showImportPreview(rows, errors) {
+  const validRows = rows.filter(r => r._valid);
+  const invalidRows = rows.filter(r => !r._valid);
+
+  document.getElementById('import-preview').style.display = 'block';
+  document.getElementById('import-preview-title').textContent =
+    `Aperçu — ${validRows.length} règlement(s) prêts à importer${invalidRows.length ? ` · ${invalidRows.length} erreur(s)` : ''}`;
+
+  const tbody = document.getElementById('import-preview-body');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr style="border-bottom:1px solid var(--border);background:${r._valid ? '' : '#fff5f5'}">
+      <td style="padding:7px 10px;color:var(--ink3)">${i+1}</td>
+      <td style="padding:7px 10px;font-weight:600;font-size:12px">${r.praticien||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${normCat(r.categorie)}</td>
+      <td style="padding:7px 10px;font-family:Bricolage Grotesque,sans-serif;color:var(--green);font-weight:700">${r.montant ? fmt(r.montant) : '❌'}</td>
+      <td style="padding:7px 10px;font-size:12px">${r.date||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${r.reglement||'—'}</td>
+      <td style="padding:7px 10px;font-size:12px">${r.banque||'—'}</td>
+      <td style="padding:7px 10px">${r._valid ? '<span style="color:var(--green);font-weight:700">✅</span>' : '<span style="color:var(--red);font-weight:700">❌</span>'}</td>
+    </tr>`).join('');
+
+  document.getElementById('import-summary').innerHTML =
+    `<strong>${validRows.length}</strong> règlement(s) valides · <strong style="color:var(--red)">${invalidRows.length}</strong> erreur(s)` +
+    (errors.length ? `<br><span style="color:var(--red)">${errors.slice(0,3).join(' · ')}</span>` : '');
+
+  document.getElementById('import-confirm-btn').textContent = `✅ Importer ${validRows.length} règlement(s)`;
+}
+
+async function confirmImport() {
+  const validRows = importData.filter(r => r._valid);
+  if (!validRows.length) { showToast('❌ Aucune ligne valide à importer'); return; }
+
+  // Calculer les numéros auto
+  validRows.forEach(r => {
+    r.num = nextNum(r.month);
+    allData.push(r);
+  });
+
+  await saveData();
+  renderAll();
+  cancelImport();
+  showToast(`✅ ${validRows.length} règlement(s) importés avec succès !`);
+}
+
+function cancelImport() {
+  importData = [];
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('csv-file-input').value = '';
+}
 function toggleExportMenu() {
   const menu = document.getElementById('export-menu');
   menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
