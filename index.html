@@ -893,16 +893,16 @@ async function loadData() {
     const res = await fetch(FIREBASE_URL + DB_PATH + '.json');
     const data = await res.json();
     allData = data ? Object.values(data) : [];
-    // Stocker les Firebase keys pour les updates/deletes
     if (data) {
       window._fbKeys = {};
       Object.entries(data).forEach(([k,v]) => { window._fbKeys[v.id] = k; });
     } else {
       window._fbKeys = {};
     }
+    // Toujours synchroniser localStorage avec Firebase (Firebase = source de vérité)
+    localStorage.setItem('reglements-2026-data', JSON.stringify(allData));
   } catch(e) {
     console.error('Firebase load error:', e);
-    // Fallback localStorage
     try { allData = JSON.parse(localStorage.getItem('reglements-2026-data') || '[]'); } catch(_) { allData = []; }
     showToast('⚠️ Connexion Firebase impossible — mode local activé');
   }
