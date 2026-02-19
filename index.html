@@ -1631,14 +1631,21 @@ async function confirmImport() {
   const validRows = importData.filter(r => r._valid);
   if (!validRows.length) { showToast('❌ Aucune ligne valide à importer'); return; }
 
-  // Calculer les numéros auto
+  document.getElementById('import-confirm-btn').textContent = '⏳ Import en cours...';
+  document.getElementById('import-confirm-btn').disabled = true;
+
+  // Calculer les numéros auto et ajouter à allData
   validRows.forEach(r => {
     r.num = nextNum(r.month);
     allData.push(r);
   });
 
+  // Sauvegarder dans Firebase (source unique de vérité)
   await saveData();
-  renderAll();
+
+  // Recharger depuis Firebase pour être sûr
+  await loadData();
+
   cancelImport();
   showToast(`✅ ${validRows.length} règlement(s) importés avec succès !`);
 }
